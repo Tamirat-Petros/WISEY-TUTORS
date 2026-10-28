@@ -2,6 +2,10 @@ node_modules/
 **/node_modules/
 **/dist/
 **/coverage/
+**/.next/
+**/out/
+**/.turbo/
+**/tsconfig.tsbuildinfo
 **/src/generated/
 .env
 .env.*
