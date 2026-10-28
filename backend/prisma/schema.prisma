@@ -1,0 +1,203 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  STAFF
+  TUTOR
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum TutorStatus {
+  DRAFT
+  PUBLIC
+  PAUSED
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  CONVERTED
+  CLOSED
+}
+
+enum BookingRequestStatus {
+  NEW
+  CONTACTED
+  OFFERED
+  ACCEPTED
+  DECLINED
+  CLOSED
+}
+
+enum LearnerAgeGroup {
+  CHILD
+  TEEN
+  ADULT
+  PREFER_NOT_TO_SAY
+}
+
+enum SessionMode {
+  ONLINE
+  IN_PERSON
+  EITHER
+}
+
+model User {
+  id             String          @id @default(cuid())
+  email          String          @unique @db.VarChar(254)
+  displayName    String          @db.VarChar(120)
+  passwordHash   String          @db.VarChar(255)
+  role           UserRole        @default(STAFF)
+  status         AccountStatus   @default(ACTIVE)
+  tutorProfile   TutorProfile?
+  refreshSessions RefreshSession[]
+  auditEvents    AuditLog[]
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime        @updatedAt @db.Timestamptz(3)
+
+  @@index([role, status])
+}
+
+model RefreshSession {
+  id         String    @id @default(cuid())
+  userId     String
+  familyId   String   @db.VarChar(80)
+  familyExpiresAt DateTime @db.Timestamptz(3)
+  tokenHash  String    @unique @db.Char(64)
+  expiresAt  DateTime  @db.Timestamptz(3)
+  revokedAt  DateTime? @db.Timestamptz(3)
+  userAgent  String?   @db.VarChar(512)
+  ipAddress  String?   @db.VarChar(64)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(3)
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId, revokedAt])
+  @@index([expiresAt])
+}
+
+model Subject {
+  id          String         @id @default(cuid())
+  slug        String         @unique @db.VarChar(80)
+  name        String         @unique @db.VarChar(120)
+  description String?        @db.VarChar(500)
+  isActive    Boolean        @default(true)
+  tutorLinks  TutorSubject[]
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@index([isActive, name])
+}
+
+model TutorProfile {
+  id               String        @id @default(cuid())
+  userId           String        @unique
+  slug             String        @unique @db.VarChar(120)
+  publicName       String        @db.VarChar(120)
+  headline         String?       @db.VarChar(180)
+  bio              String?       @db.VarChar(4000)
+  yearsExperience  Int           @default(0)
+  mode             SessionMode   @default(EITHER)
+  status           TutorStatus   @default(DRAFT)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subjects         TutorSubject[]
+  availability     AvailabilitySlot[]
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @db.Timestamptz(3)
+
+  @@index([status, publicName])
+}
+
+model TutorSubject {
+  tutorId   String
+  subjectId String
+  tutor     TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  subject   Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([tutorId, subjectId])
+  @@index([subjectId])
+}
+
+model AvailabilitySlot {
+  id        String       @id @default(cuid())
+  tutorId   String
+  startsAt  DateTime     @db.Timestamptz(3)
+  endsAt    DateTime     @db.Timestamptz(3)
+  timezone  String       @db.VarChar(64)
+  isOpen    Boolean      @default(true)
+  tutor     TutorProfile @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+
+  @@index([tutorId, isOpen, startsAt])
+  @@index([startsAt, endsAt])
+}
+
+model Inquiry {
+  id                String         @id @default(cuid())
+  contactName       String         @db.VarChar(120)
+  email             String         @db.VarChar(254)
+  phone             String?        @db.VarChar(32)
+  learnerAgeGroup   LearnerAgeGroup
+  subjectInterest   String         @db.VarChar(120)
+  message           String         @db.VarChar(3000)
+  privacyConsentAt  DateTime       @db.Timestamptz(3)
+  status            InquiryStatus  @default(NEW)
+  source            String?        @db.VarChar(120)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+}
+
+model BookingRequest {
+  id               String               @id @default(cuid())
+  contactName      String               @db.VarChar(120)
+  email            String               @db.VarChar(254)
+  phone            String?              @db.VarChar(32)
+  learnerAgeGroup  LearnerAgeGroup
+  subjectInterest  String               @db.VarChar(120)
+  curriculum       String?              @db.VarChar(120)
+  mode             SessionMode          @default(EITHER)
+  timezone         String               @db.VarChar(64)
+  preferredStart  DateTime?             @db.Timestamptz(3)
+  preferredEnd    DateTime?             @db.Timestamptz(3)
+  message          String?              @db.VarChar(3000)
+  privacyConsentAt DateTime             @db.Timestamptz(3)
+  status           BookingRequestStatus @default(NEW)
+  createdAt        DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime             @updatedAt @db.Timestamptz(3)
+
+  @@index([status, createdAt])
+  @@index([preferredStart, preferredEnd])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String   @db.VarChar(120)
+  entityType String   @db.VarChar(80)
+  entityId   String   @db.VarChar(80)
+  metadata   Json?
+  ipAddress  String?  @db.VarChar(64)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+
+
