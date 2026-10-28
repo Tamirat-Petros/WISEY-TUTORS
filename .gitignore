@@ -1,0 +1,14 @@
+node_modules/
+**/node_modules/
+**/dist/
+**/coverage/
+**/src/generated/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Ignore duplicate scaffold files created during setup
+backend/backend/
+backend/.gitignore

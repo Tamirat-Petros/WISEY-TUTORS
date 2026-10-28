@@ -1,0 +1,155 @@
+openapi: 3.1.0
+info:
+  title: Wisey Tutors API
+  version: 0.1.0
+  description: Backend API for tutor discovery, enquiries, booking requests, and administration.
+servers:
+  - url: http://localhost:4000
+    description: Local development
+paths:
+  /health/live:
+    get:
+      summary: Liveness probe
+      responses:
+        '200': { description: Process is alive }
+  /health/ready:
+    get:
+      summary: Readiness probe
+      responses:
+        '200': { description: Database connection is ready }
+        '503': { description: Database is unavailable }
+  /api/v1/catalog/subjects:
+    get:
+      summary: List active tutoring subjects
+      responses:
+        '200': { description: Subject list }
+  /api/v1/catalog/tutors:
+    get:
+      summary: Browse public tutor profiles
+      parameters:
+        - in: query
+          name: subject
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: pageSize
+          schema: { type: integer, minimum: 1, maximum: 50, default: 12 }
+      responses:
+        '200': { description: Paginated tutor profiles }
+  /api/v1/inquiries:
+    post:
+      summary: Submit a tutoring enquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquirySubmission'
+      responses:
+        '201': { description: Enquiry received }
+        '400': { description: Validation error }
+        '429': { description: Submission rate limit reached }
+  /api/v1/booking-requests:
+    post:
+      summary: Request a tutoring session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequestSubmission'
+      responses:
+        '201': { description: Request received }
+        '400': { description: Validation error }
+        '429': { description: Submission rate limit reached }
+  /api/v1/auth/login:
+    post:
+      summary: Sign in an administrator or staff member
+      responses:
+        '200': { description: Short-lived access token; refresh token is set as an HttpOnly cookie }
+        '401': { description: Invalid credentials }
+  /api/v1/auth/refresh:
+    post:
+      summary: Rotate the refresh session and issue a new access token
+      responses:
+        '200': { description: Access token refreshed }
+        '401': { description: Session expired or invalid }
+  /api/v1/auth/logout:
+    post:
+      summary: Revoke the current refresh session
+      responses:
+        '204': { description: Session revoked }
+  /api/v1/admin/inquiries:
+    get:
+      summary: List enquiries for staff
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Paginated enquiry inbox }
+        '401': { description: Authentication required }
+  /api/v1/admin/inquiries/{id}/status:
+    patch:
+      summary: Update enquiry status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Enquiry status updated }
+        '403': { description: Admin role required }
+  /api/v1/admin/booking-requests:
+    get:
+      summary: List booking requests for staff
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Paginated booking request inbox }
+  /api/v1/admin/booking-requests/{id}/status:
+    patch:
+      summary: Update booking request status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Booking request status updated }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    InquirySubmission:
+      type: object
+      required: [contactName, email, learnerAgeGroup, subjectInterest, message, privacyConsent]
+      properties:
+        contactName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
+        learnerAgeGroup: { type: string, enum: [CHILD, TEEN, ADULT, PREFER_NOT_TO_SAY] }
+        subjectInterest: { type: string, minLength: 2, maxLength: 120 }
+        message: { type: string, minLength: 10, maxLength: 3000 }
+        privacyConsent: { type: boolean, const: true }
+        website: { type: string, maxLength: 0, description: Hidden spam trap; leave empty. }
+    BookingRequestSubmission:
+      type: object
+      required: [contactName, email, learnerAgeGroup, subjectInterest, timezone, privacyConsent]
+      properties:
+        contactName: { type: string, minLength: 2, maxLength: 120 }
+        email: { type: string, format: email }
+        phone: { type: string, maxLength: 32 }
+        learnerAgeGroup: { type: string, enum: [CHILD, TEEN, ADULT, PREFER_NOT_TO_SAY] }
+        subjectInterest: { type: string, minLength: 2, maxLength: 120 }
+        curriculum: { type: string, maxLength: 120 }
+        mode: { type: string, enum: [ONLINE, IN_PERSON, EITHER], default: EITHER }
+        timezone: { type: string, maxLength: 64 }
+        preferredStart: { type: string, format: date-time }
+        preferredEnd: { type: string, format: date-time }
+        message: { type: string, maxLength: 3000 }
+        privacyConsent: { type: boolean, const: true }
+        website: { type: string, maxLength: 0, description: Hidden spam trap; leave empty. }

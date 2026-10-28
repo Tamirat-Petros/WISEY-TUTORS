@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wisey_tutors
+      POSTGRES_USER: wisey
+      POSTGRES_PASSWORD: wisey_local_only
+    ports:
+      - "127.0.0.1:54329:5432"
+    volumes:
+      - wisey_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wisey -d wisey_tutors"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  wisey_postgres:
